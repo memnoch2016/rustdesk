@@ -1152,25 +1152,23 @@ pub fn decode64<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, base64::DecodeError
 }
 
 pub async fn get_key(sync: bool) -> String {
-    #[cfg(windows)]
-    if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
-        if !lic.key.is_empty() {
-            return lic.key;
-        }
-    }
-    #[cfg(target_os = "ios")]
-    let mut key = Config::get_option("key");
-    #[cfg(not(target_os = "ios"))]
     let mut key = if sync {
         Config::get_option("key")
     } else {
         let mut options = crate::ipc::get_options_async().await;
         options.remove("key").unwrap_or_default()
     };
+    if key.is_empty() {
+        #[cfg(windows)]
+        if let Some(lic) = windows::get_license() {
+            return lic.key;
+        }
+    }
     if key.is_empty() && !option_env!("RENDEZVOUS_SERVER").unwrap_or("").is_empty() {
         key = config::RS_PUB_KEY.to_owned();
     }
     key
+}
 }
 
 pub fn pk_to_fingerprint(pk: Vec<u8>) -> String {
